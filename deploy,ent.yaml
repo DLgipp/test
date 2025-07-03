@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+spec:
+  replicas: 3 # 3 потому что для максимальной отказоустойчивости нужно чтоб всегда было по одному поду в каждой зоне
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1 # разница в количестве подов должна быть не больше 1, поэтому поды создатутся в разных зонах
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: app
+      containers:
+        - name: app-container
+          image: app:latest
+          resources:
+            requests:
+              cpu: "0.3" # так как при первых запросах нагрузка выше, то возьмем немного сверх 0.1
+              memory: "128Mi"
+            limits:
+              cpu: "0.5"
+              memory: "128Mi"
+          startupProbe: # учитываем время инициализации до 10 секунд
+            httpGet:
+              path: /healthz/startup
+              port: 8080
+            failureThreshold: 10  # это запас по времени в 10 секунд, для запуска приложения
+            periodSeconds: 1
+          readinessProbe: # проверяем на способность пропускать трафик
+            httpGet:
+              path: /healthz/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe: # проба для проверки жив конейнер или нет
+            httpGet:
+              path: /healthz/live
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+
+# далее сделаем autscale для увеличения числа подов при появлении нагрузи
+# думаю что увеличение числа динамически в зависимости от нагрузки более ресурсноэффективно чем строго по времени
+# перейдем во второй манифест autoscale.yaml
