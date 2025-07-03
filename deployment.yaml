@@ -19,6 +19,12 @@ spec:
           labelSelector:
             matchLabels:
               app: app
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname # вторая сортировка призвана для того чтобы повысит отказоустойчивость в случае выхода из строя какой либо из нод, этот параметр распределяет под по нодам в кол-во 1 (в нашей ситуации)
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: app
       containers:
         - name: app-container
           image: app:latest
